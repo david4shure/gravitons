@@ -10,24 +10,26 @@ height = 800
 fwidth = fromIntegral width :: Float
 fheight = fromIntegral height :: Float
 forcefactor = 15
-ghostparticlemass = 100000
+ghostparticlemass = 250000
 baseparticlemass  = 1000
 eta = 10
-dragperframe = 0.9899
+dragperframe = 0.96
 numParticles = 1700 :: Int
 g            = (6.674*10)^11
 
+colors = [(dark blue)]
 
 -- datas
 data Particle = Particle
             {
-              xPos    :: Float,
-              yPos    :: Float,
-              xVel    :: Float,
-              yVel    :: Float,
-              mass    :: Float,
-              radius  :: Float,
-              sign    :: Float
+              xPos     :: Float,
+              yPos     :: Float,
+              xVel     :: Float,
+              yVel     :: Float,
+              mass     :: Float,
+              radius   :: Float,
+              sign     :: Float,
+              colorIdx :: Int
             } deriving (Show, Eq)
 
 data WorldState = WorldState
@@ -41,15 +43,31 @@ data WorldState = WorldState
 -- drawingFunc _ = translate 30 40 (Circle 20)
 
 particle2pic :: Particle -> Picture
-particle2pic p = translate particleX particleY $color blue $circleSolid (radius p)
+particle2pic p = translate particleX particleY $color (colors !! (colorIdx p)) $circleSolid (radius p)
   where
     particleX = (xPos p)
     particleY = (yPos p)
 
+
+particle2line :: Particle -> Picture
+particle2line p = color red $line (getVectorHeading p)
+
+getVectorHeading :: Particle -> [(Float,Float)]
+getVectorHeading p = [vStart,vEnd]
+  where
+    particleX = (xPos p)
+    particleY = (yPos p)
+    vMag      = sqrt ((xVel p) ^ 2 + (yVel p) ^ 2)
+    vUnit     = ((xVel p)/vMag,(yVel p)/vMag)
+    vScaled   = ((fst vUnit) * 8, (snd vUnit) * 8)
+    vEnd      = (particleX+(fst vScaled),particleY+(snd vScaled))
+    vStart    = (particleX,particleY)
+
+
 drawingFunc :: WorldState -> Picture
 drawingFunc ws = pictures allparticles
   where
-    allparticles = map particle2pic $particles ws
+    allparticles = (concat . map (\p -> [(particle2pic p), (particle2line p)])) $particles ws
 
 inputHandler :: Event -> WorldState -> WorldState
 inputHandler (EventKey (SpecialKey KeyUp) Down _ _) ws = ws
@@ -72,7 +90,8 @@ inputHandler (EventKey (MouseButton LeftButton) Down _ (x', y')) ws = newws wher
                                  yPos = y',
                                  mass = ghostparticlemass,
                                  radius = 3,
-                                 sign   = -1.0
+                                 sign   = -1.0,
+                                 colorIdx = (round (x'+y') `mod` length colors)
                                }
                              ]
   newws = WorldState { particles = newparticles, ghosts = newghosts }
@@ -98,7 +117,8 @@ updateParticle t p ps gs = newparticle where
                             yPos = (yPos p),
                             mass = ghostparticlemass,
                             radius = 3,
-                            sign   = -1.0
+                            sign   = -1.0,
+                            colorIdx = 0
                           }
 
                           ghostRight = Particle {
@@ -108,7 +128,8 @@ updateParticle t p ps gs = newparticle where
                             yPos = (yPos p),
                             mass = ghostparticlemass,
                             radius = 3,
-                            sign   = -1.0
+                            sign   = -1.0,
+                            colorIdx = 0
                           }
 
                           ghostBottom = Particle {
@@ -118,7 +139,8 @@ updateParticle t p ps gs = newparticle where
                             yPos = (fromIntegral (-height)::Float) / 2.0,
                             mass = ghostparticlemass,
                             radius = 3,
-                            sign   = -1.0
+                            sign   = -1.0,
+                            colorIdx = 0
                           }
 
                           ghostTop = Particle {
@@ -128,7 +150,8 @@ updateParticle t p ps gs = newparticle where
                             yPos = (fromIntegral height::Float) / 2.0,
                             mass = ghostparticlemass,
                             radius = 3,
-                            sign   = -1.0
+                            sign   = -1.0,
+                            colorIdx = 0
                           }
 
                           -- force = netForceVector t p ([] ++ ps) -- (3.0,2.7)
@@ -174,7 +197,8 @@ updateParticle t p ps gs = newparticle where
                             yPos   = finalypos,
                             mass   = (mass p),
                             radius = (radius p),
-                            sign   = (sign p)
+                            sign   = (sign p),
+                            colorIdx = (colorIdx p)
                           }
 
 getForceVector :: Float -> Particle -> Particle -> (Float,Float)
@@ -203,12 +227,10 @@ sumTuples arr = (sum [x | (x,_) <- arr], sum [y | (_,y) <- arr])
 scaleVector :: (Float,Float) -> Float -> (Float,Float)
 scaleVector v s = (s * fst v, s * snd v)
 
-windowDisplay :: Display
-windowDisplay = InWindow "Particle Parry" (width, height) (width `div` 2, height `div` 2)
 
 particle :: (Float,Float) -> (Float,Float) -> Particle
 particle (x,y) (vx,vy) = particle where 
-  particle = Particle { xPos = x, yPos = y, xVel = vx, yVel = vy, mass = baseparticlemass, radius = 3, sign = (-1.0) }
+  particle = Particle { xPos = x, yPos = y, xVel = vx, yVel = vy, mass = baseparticlemass, radius = 3, sign = (-1.0),colorIdx = (round (x+y)) `mod` (length colors) }
 
 genparticles :: Int -> [(Float,Float)] -> [(Float,Float)] -> [Particle]
 genparticles n randPosns randVels = particles
@@ -225,6 +247,9 @@ getRandPairs fst_left_rng fst_right_rng snd_left_rng snd_right_rng n = do
                   h <- randomRIO (snd_left_rng + eta, snd_right_rng - eta)
                   ns <- getRandPairs fst_left_rng fst_right_rng snd_left_rng snd_right_rng (n-1)
                   return ((fromIntegral w::Float,fromIntegral h::Float):ns)
+
+windowDisplay :: Display
+windowDisplay = InWindow "Gravitons" (width, height) (width `div` 2, height `div` 2)
 
 -- main function
 main :: IO ()
