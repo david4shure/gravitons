@@ -13,13 +13,14 @@ forcefactor = 15
 ghostparticlemass = 250000
 baseparticlemass  = 1000
 eta = 10
-dragperframe = 0.96
-numParticles = 1700 :: Int
+dragperframe = 0.98
+numParticles = 1500 :: Int
 g            = (6.674*10)^11
 
-colors = [(dark blue)]
+colors = [(dark (dark green)), (dark (dark red))]
 
 -- datas
+
 data Particle = Particle
             {
               xPos     :: Float,
@@ -89,7 +90,7 @@ inputHandler (EventKey (MouseButton LeftButton) Down _ (x', y')) ws = newws wher
                                  xPos = x',
                                  yPos = y',
                                  mass = ghostparticlemass,
-                                 radius = 3,
+                                 radius = 5,
                                  sign   = -1.0,
                                  colorIdx = (round (x'+y') `mod` length colors)
                                }
@@ -190,6 +191,8 @@ updateParticle t p ps gs = newparticle where
                                        else
                                          newypos
 
+                          dotp = dot (finalxvel, finalyvel) (finalxpos,finalypos)
+
                           newparticle = Particle {
                             xVel   = finalxvel,
                             yVel   = finalyvel,
@@ -198,8 +201,11 @@ updateParticle t p ps gs = newparticle where
                             mass   = (mass p),
                             radius = (radius p),
                             sign   = (sign p),
-                            colorIdx = (colorIdx p)
+                            colorIdx = if dotp >= 0.0 then 0 else 1
                           }
+
+dot :: (Float,Float) -> (Float,Float) -> Float
+dot t1 t2 = (fst t1 * fst t2) + (snd t1 * snd t2)
 
 getForceVector :: Float -> Particle -> Particle -> (Float,Float)
 getForceVector t p1 p2 | p1 == p2  = (0.0,0.0)
@@ -230,7 +236,7 @@ scaleVector v s = (s * fst v, s * snd v)
 
 particle :: (Float,Float) -> (Float,Float) -> Particle
 particle (x,y) (vx,vy) = particle where 
-  particle = Particle { xPos = x, yPos = y, xVel = vx, yVel = vy, mass = baseparticlemass, radius = 3, sign = (-1.0),colorIdx = (round (x+y)) `mod` (length colors) }
+  particle = Particle { xPos = x, yPos = y, xVel = vx, yVel = vy, mass = baseparticlemass, radius = 3, sign = (-1.0),colorIdx = if (dot (vx,vy) (0,0)) <= 0 then 0 else 1 }
 
 genparticles :: Int -> [(Float,Float)] -> [(Float,Float)] -> [Particle]
 genparticles n randPosns randVels = particles
